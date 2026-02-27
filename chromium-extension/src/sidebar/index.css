@@ -757,6 +757,74 @@ textarea {
   opacity: 0.5;
 }
 
+/* Composer layout contract: keep vital actions reachable in narrow widths. */
+.soca-composer-shell {
+  container-type: inline-size;
+}
+
+.soca-composer-toolbar {
+  border-top: 1px solid var(--chrome-input-border);
+  padding: 8px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.soca-composer-toolbar-actions,
+.soca-composer-toolbar-vitals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.soca-composer-toolbar-actions {
+  flex: 1 1 auto;
+}
+
+.soca-composer-toolbar-vitals {
+  flex: 0 1 auto;
+  margin-left: auto;
+  justify-content: flex-end;
+}
+
+.soca-advanced-row {
+  width: 100%;
+  min-width: 0;
+}
+
+.soca-advanced-select {
+  min-width: 124px !important;
+  max-width: 188px;
+  flex: 1 1 124px;
+}
+
+@container (max-width: 520px) {
+  .soca-composer-toolbar .soca-btn-label {
+    display: none;
+  }
+}
+
+@container (max-width: 420px) {
+  .soca-composer-toolbar .soca-btn-optional {
+    display: none !important;
+  }
+}
+
+@container (max-width: 360px) {
+  .soca-composer-toolbar .soca-btn-frequent {
+    display: none !important;
+  }
+  .soca-advanced-select {
+    max-width: 100%;
+    min-width: 0 !important;
+    flex: 1 1 100%;
+  }
+}
+
 /* Webpage reference styles */
 .webpage-reference-display {
   color: #1677ff;

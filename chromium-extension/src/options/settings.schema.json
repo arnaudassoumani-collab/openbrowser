@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenBrowser LLM Settings",
+  "type": "object",
+  "required": ["schemaVersion", "llm", "authMode", "modelName", "options"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "llm": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authMode": {
+      "type": "string",
+      "enum": ["api_key", "oauth"]
+    },
+    "oauthClientId": {
+      "type": "string"
+    },
+    "oauthScopes": {
+      "type": "string"
+    },
+    "apiKey": {
+      "type": "string"
+    },
+    "modelName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "npm": {
+      "type": "string"
+    },
+    "options": {
+      "type": "object",
+      "required": ["baseURL"],
+      "properties": {
+        "baseURL": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

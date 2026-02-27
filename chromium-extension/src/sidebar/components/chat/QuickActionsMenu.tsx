@@ -45,8 +45,9 @@ export const QuickActionsMenu: React.FC<QuickActionsMenuProps> = ({
         icon={<ThunderboltOutlined />}
         disabled={disabled}
         className="text-theme-icon"
+        data-testid="soca-btn-quick"
       >
-        Quick
+        <span className="soca-btn-label">Quick</span>
       </Button>
     </Dropdown>
   );

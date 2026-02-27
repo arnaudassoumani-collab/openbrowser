@@ -775,7 +775,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   const toolsPopoverContent = (
-    <div style={{ width: 320 }}>
+    <div style={{ width: "min(320px, calc(100vw - 48px))", maxWidth: "100%" }}>
       <div className="text-theme-primary font-medium">Tool connections</div>
       <div
         className="text-theme-primary"

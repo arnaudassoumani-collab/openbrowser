@@ -382,7 +382,7 @@ function isAllowlistedHost(hostname: string, allowlist: string[]): boolean {
 }
 
 const BRIDGE_ROUTED_PROVIDER_IDS = new Set(["soca-bridge", "vps-holo"]);
-const OLLAMA_FALLBACK_MODEL = "qwen3-vl:2b";
+const OLLAMA_FALLBACK_MODEL = "qwen3-vl:8b";
 const OLLAMA_FALLBACK_BASE_URL = "http://127.0.0.1:11434/v1";
 
 function isBridgeRoutedProvider(providerId: string): boolean {
@@ -2266,6 +2266,21 @@ chrome.runtime.onMessage.addListener(function (request, _sender, sendResponse) {
         if (request.type === "SOCA_PROVIDER_MODELS_CACHE_READ") {
           const cache = await readProviderModelsCache();
           sendResponse({ ok: true, data: cache });
+          return;
+        }
+        if (request.type === "SOCA_TEST_BACKEND_HANDLERS") {
+          sendResponse({
+            ok: true,
+            data: {
+              chat: Boolean(eventHandlers.chat),
+              callback: Boolean(eventHandlers.callback),
+              uploadFile: Boolean(eventHandlers.uploadFile),
+              stop: Boolean(eventHandlers.stop),
+              getTabs: Boolean(eventHandlers.getTabs),
+              promptbuddy_enhance: Boolean(eventHandlers.promptbuddy_enhance),
+              promptbuddy_profiles: Boolean(eventHandlers.promptbuddy_profiles)
+            }
+          });
           return;
         }
         if (request.type === "SOCA_TEST_WRITE_GATE_BLOCK_REASON") {

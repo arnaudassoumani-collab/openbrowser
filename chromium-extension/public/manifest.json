@@ -52,9 +52,7 @@
     "https://api.anthropic.com/*",
     "https://generativelanguage.googleapis.com/*",
     "https://openrouter.ai/*",
-    "https://*.openai.azure.com/*",
-    "https://bedrock-runtime.*.amazonaws.com/*",
-    "https://oauth2.googleapis.com/*"
+    "https://*.openai.azure.com/*"
   ],
   "web_accessible_resources": [
     {

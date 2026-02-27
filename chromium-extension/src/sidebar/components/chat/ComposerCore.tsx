@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   SendOutlined,
   StopOutlined,
@@ -7,9 +7,10 @@ import {
   HistoryOutlined,
   SettingOutlined,
   DownOutlined,
-  UpOutlined
+  UpOutlined,
+  MoreOutlined
 } from "@ant-design/icons";
-import { Button, Space } from "antd";
+import { Button, Dropdown, type MenuProps } from "antd";
 import { WebpageMentionInput } from "../WebpageMentionInput";
 
 type ComposerCoreProps = {
@@ -45,64 +46,142 @@ export const ComposerCore: React.FC<ComposerCoreProps> = ({
   isEmpty,
   quickActionsNode
 }) => {
+  const disabled = sending || currentMessageId !== null;
+  const moreItems = useMemo<MenuProps["items"]>(
+    () => [
+      {
+        key: "attach",
+        icon: <PaperClipOutlined />,
+        label: "Attach file"
+      },
+      {
+        key: "history",
+        icon: <HistoryOutlined />,
+        label: "Session history"
+      },
+      {
+        key: "settings",
+        icon: <SettingOutlined />,
+        label: "Settings"
+      },
+      {
+        key: "advanced",
+        icon: advancedOpen ? <UpOutlined /> : <DownOutlined />,
+        label: advancedOpen ? "Hide advanced" : "Show advanced"
+      },
+      {
+        key: "new",
+        icon: <PlusOutlined />,
+        label: "New session"
+      }
+    ],
+    [advancedOpen]
+  );
+
+  const handleMoreClick: MenuProps["onClick"] = ({ key }) => {
+    switch (String(key)) {
+      case "attach":
+        onOpenFilePicker();
+        break;
+      case "history":
+        onShowSessionHistory();
+        break;
+      case "settings":
+        onOpenSettings();
+        break;
+      case "advanced":
+        onToggleAdvanced();
+        break;
+      case "new":
+        onNewSession();
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <div
-      className="bg-theme-input border-theme-input relative shadow-sm hover:shadow-md transition-shadow radius-8px"
-      style={{ borderWidth: "1px", borderStyle: "solid", overflow: "hidden" }}
+      className="soca-composer-shell bg-theme-input border-theme-input shadow-sm hover:shadow-md transition-shadow radius-8px"
+      style={{ borderWidth: "1px", borderStyle: "solid" }}
     >
-      <div className="px-4 pt-3 pb-12">
+      <div className="px-4 pt-3 pb-2 min-w-0">
         <WebpageMentionInput
           value={inputValue}
           onChange={onInputChange}
-          disabled={sending || currentMessageId !== null}
+          disabled={disabled}
           onSend={onSend}
         />
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-2">
-        <Space size="small">
+      <div className="soca-composer-toolbar border-theme-input">
+        <div className="soca-composer-toolbar-actions">
           <Button
             type="text"
             icon={<PaperClipOutlined />}
             onClick={onOpenFilePicker}
-            disabled={sending || currentMessageId !== null}
-            className="text-theme-icon"
+            disabled={disabled}
+            className="text-theme-icon soca-btn-frequent"
+            data-testid="soca-btn-attach"
           />
           <Button
             type="text"
             icon={<HistoryOutlined />}
             onClick={onShowSessionHistory}
-            disabled={sending || currentMessageId !== null}
-            className="text-theme-icon"
+            disabled={disabled}
+            className="text-theme-icon soca-btn-frequent"
+            data-testid="soca-btn-history"
           />
           {quickActionsNode}
           <Button
             type="text"
             icon={<SettingOutlined />}
             onClick={onOpenSettings}
-            disabled={sending || currentMessageId !== null}
-            className="text-theme-icon"
+            disabled={disabled}
+            className="text-theme-icon soca-btn-frequent"
+            data-testid="soca-btn-settings"
           />
           <Button
             type="text"
             onClick={onToggleAdvanced}
-            disabled={sending || currentMessageId !== null}
-            className="text-theme-icon"
+            disabled={disabled}
+            className="text-theme-icon soca-btn-optional"
             icon={advancedOpen ? <UpOutlined /> : <DownOutlined />}
+            data-testid="soca-btn-advanced"
           >
-            Advanced
+            <span className="soca-btn-label">Advanced</span>
           </Button>
-        </Space>
+          <Dropdown
+            trigger={["click"]}
+            placement="topLeft"
+            menu={{
+              items: moreItems,
+              onClick: handleMoreClick
+            }}
+          >
+            <Button
+              type="text"
+              icon={<MoreOutlined />}
+              disabled={disabled}
+              className="text-theme-icon"
+              data-testid="soca-btn-more"
+              aria-label="More actions"
+            >
+              <span className="soca-btn-label">More</span>
+            </Button>
+          </Dropdown>
+        </div>
 
-        <Space size="small">
+        <div className="soca-composer-toolbar-vitals">
           <Button
             size="small"
             icon={<PlusOutlined />}
             onClick={onNewSession}
-            disabled={sending || currentMessageId !== null}
+            disabled={disabled}
             className="soca-secondary-btn"
+            data-testid="soca-btn-new"
           >
-            New (+)
+            <span className="soca-btn-label">New (+)</span>
           </Button>
           {currentMessageId ? (
             <Button
@@ -111,8 +190,9 @@ export const ComposerCore: React.FC<ComposerCoreProps> = ({
               icon={<StopOutlined />}
               onClick={onStop}
               className="soca-danger-btn"
+              data-testid="soca-btn-stop"
             >
-              Stop
+              <span className="soca-btn-label">Stop</span>
             </Button>
           ) : (
             <Button
@@ -122,11 +202,12 @@ export const ComposerCore: React.FC<ComposerCoreProps> = ({
               loading={sending}
               disabled={sending || isEmpty}
               className="soca-primary-btn"
+              data-testid="soca-btn-send"
             >
-              Send (Enter)
+              <span className="soca-btn-label">Send (Enter)</span>
             </Button>
           )}
-        </Space>
+        </div>
       </div>
     </div>
   );

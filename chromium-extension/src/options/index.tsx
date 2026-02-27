@@ -27,6 +27,12 @@ import {
   isTrustedBridgeURL,
   normalizeBaseURL
 } from "../llm/endpointPolicy";
+import {
+  SETTINGS_SCHEMA_VERSION,
+  migrateLLMConfig,
+  migrateHistoryLLMConfig,
+  validateLLMConfig
+} from "./settings.migrations";
 import type {
   Provider,
   ProviderOption,
@@ -52,8 +58,7 @@ const DIRECT_PROVIDER_HOST_PERMISSIONS = [
   "https://generativelanguage.googleapis.com/*",
   "https://openrouter.ai/*",
   "https://oauth2.googleapis.com/*",
-  "https://*.openai.azure.com/*",
-  "https://bedrock-runtime.*.amazonaws.com/*"
+  "https://*.openai.azure.com/*"
 ];
 const BRIDGE_ROUTED_PROVIDER_IDS = new Set(["soca-bridge", "vps-holo"]);
 const DIRECT_PROVIDER_IDS = new Set([
@@ -194,7 +199,7 @@ const OptionsPage = () => {
     oauthClientId: "",
     oauthScopes: GOOGLE_OAUTH_DEFAULT_SCOPE,
     apiKey: "",
-    modelName: "qwen3-vl:2b",
+    modelName: "qwen3-vl:8b",
     npm: "@ai-sdk/openai-compatible",
     options: {
       baseURL: "http://127.0.0.1:11434/v1"
@@ -378,17 +383,32 @@ const OptionsPage = () => {
           "socaBridgeConfig"
         ]);
 
-        if (result.historyLLMConfig) {
-          setHistoryLLMConfig(result.historyLLMConfig);
+        const migratedLlmConfig = migrateLLMConfig(result.llmConfig);
+        const migratedHistoryConfig = migrateHistoryLLMConfig(
+          result.historyLLMConfig
+        );
+        const llmConfigRaw = migratedLlmConfig.value;
+        const historyConfigRaw = migratedHistoryConfig.value;
+
+        if (migratedLlmConfig.changed || migratedHistoryConfig.changed) {
+          await chrome.storage.local.set({
+            llmConfig: llmConfigRaw,
+            historyLLMConfig: historyConfigRaw
+          });
         }
 
-        if (result.llmConfig) {
+        if (Object.keys(historyConfigRaw).length > 0) {
+          setHistoryLLMConfig(historyConfigRaw);
+        }
+
+        if (llmConfigRaw) {
           const nextConfig = {
-            ...result.llmConfig,
-            authMode: normalizeAuthMode(result.llmConfig?.authMode),
-            oauthClientId: String(result.llmConfig?.oauthClientId || "").trim(),
+            ...llmConfigRaw,
+            schemaVersion: SETTINGS_SCHEMA_VERSION,
+            authMode: normalizeAuthMode(llmConfigRaw?.authMode),
+            oauthClientId: String(llmConfigRaw?.oauthClientId || "").trim(),
             oauthScopes: String(
-              result.llmConfig?.oauthScopes || GOOGLE_OAUTH_DEFAULT_SCOPE
+              llmConfigRaw?.oauthScopes || GOOGLE_OAUTH_DEFAULT_SCOPE
             )
               .trim()
               .replace(/\s+/g, " ")
@@ -450,6 +470,13 @@ const OptionsPage = () => {
 
           // Never persist provider secrets in local state.
           nextConfig.apiKey = "";
+
+          const configValidation = validateLLMConfig(nextConfig);
+          if (!configValidation.ok) {
+            throw new Error(
+              `Invalid migrated settings: ${configValidation.errors.join(", ")}`
+            );
+          }
           setConfig(nextConfig);
           form.setFieldsValue(nextConfig);
 
@@ -477,7 +504,7 @@ const OptionsPage = () => {
 
         // Session-only secret prefill (never persisted).
         try {
-          const selectedProvider = String(result.llmConfig?.llm || "");
+          const selectedProvider = String(llmConfigRaw?.llm || "");
           if (BRIDGE_ROUTED_PROVIDER_IDS.has(selectedProvider)) {
             const sess = await (chrome.storage as any).session.get([
               "socaBridgeToken"
@@ -954,20 +981,25 @@ const OptionsPage = () => {
         }
 
         // Persist non-secret config only.
+        llmConfigValue.schemaVersion = SETTINGS_SCHEMA_VERSION;
         llmConfigValue.apiKey = "";
+        const configValidation = validateLLMConfig(llmConfigValue);
+        if (!configValidation.ok) {
+          throw new Error(
+            `Settings validation failed: ${configValidation.errors.join(", ")}`
+          );
+        }
         setConfig(llmConfigValue);
-        setHistoryLLMConfig({
+        const nextHistory = {
           ...historyLLMConfig,
           [llmConfigValue.llm]: llmConfigValue
-        });
+        };
+        setHistoryLLMConfig(nextHistory);
         setSocaOpenBrowserLane(lane);
 
         await chrome.storage.local.set({
           llmConfig: llmConfigValue,
-          historyLLMConfig: {
-            ...historyLLMConfig,
-            [llmConfigValue.llm]: llmConfigValue
-          },
+          historyLLMConfig: nextHistory,
           [SOCA_LANE_STORAGE_KEY]: lane
         });
         await runtimeSendMessage({ type: "SOCA_REFRESH_DNR" });

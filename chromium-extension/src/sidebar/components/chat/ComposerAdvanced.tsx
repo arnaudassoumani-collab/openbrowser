@@ -56,7 +56,7 @@ export const ComposerAdvanced: React.FC<ComposerAdvancedProps> = ({
 }) => {
   return (
     <div className="soca-composer-advanced mb-2">
-      <Space size="small" wrap>
+      <Space size="small" wrap className="soca-advanced-row">
         <Popover
           content={toolsPopoverContent}
           trigger="click"
@@ -71,6 +71,7 @@ export const ComposerAdvanced: React.FC<ComposerAdvancedProps> = ({
               icon={<ApiOutlined />}
               disabled={sending || currentMessageId !== null}
               className="text-theme-icon"
+              data-testid="soca-btn-tools"
             >
               Tools
             </Button>
@@ -82,13 +83,13 @@ export const ComposerAdvanced: React.FC<ComposerAdvancedProps> = ({
           value={pbMode}
           onChange={(value) => onSetPbMode(value as PromptBuddyMode)}
           disabled={sending || currentMessageId !== null || pbBusy}
-          style={{ width: 122 }}
-          className="bg-theme-input border-theme-input text-theme-primary input-theme-focus radius-8px"
+          className="soca-advanced-select bg-theme-input border-theme-input text-theme-primary input-theme-focus radius-8px"
           classNames={{
             popup: {
               root: "bg-theme-input border-theme-input dropdown-theme-items"
             }
           }}
+          data-testid="soca-select-promptbuddy-mode"
           options={PROMPTBUDDY_MODES.map((mode) => ({
             value: mode,
             label: mode
@@ -102,13 +103,13 @@ export const ComposerAdvanced: React.FC<ComposerAdvancedProps> = ({
           value={pbProfileId}
           onChange={(value) => onSetPbProfileId(value)}
           disabled={sending || currentMessageId !== null || pbBusy}
-          style={{ width: 130 }}
-          className="bg-theme-input border-theme-input text-theme-primary input-theme-focus radius-8px"
+          className="soca-advanced-select bg-theme-input border-theme-input text-theme-primary input-theme-focus radius-8px"
           classNames={{
             popup: {
               root: "bg-theme-input border-theme-input dropdown-theme-items"
             }
           }}
+          data-testid="soca-select-promptbuddy-profile"
           options={pbProfiles.map((profile) => ({
             value: profile.id,
             label: profile.name
@@ -123,6 +124,7 @@ export const ComposerAdvanced: React.FC<ComposerAdvancedProps> = ({
             disabled={sending || currentMessageId !== null || pbBusy}
             className="text-theme-icon"
             aria-label="Open Prompt Library"
+            data-testid="soca-btn-library"
           >
             Library
           </Button>
@@ -135,6 +137,7 @@ export const ComposerAdvanced: React.FC<ComposerAdvancedProps> = ({
             sending || currentMessageId !== null || pbBusy || !inputValue.trim()
           }
           className="text-theme-icon"
+          data-testid="soca-btn-enhance"
         >
           {pbBusy ? "Enhancing..." : "Enhance"}
         </Button>

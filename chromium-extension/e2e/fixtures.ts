@@ -18,11 +18,14 @@ type Fixtures = {
 
 export const test = base.extend<Fixtures>({
   context: async ({}, use) => {
-    const extPath = path.resolve(__dirname, "..", "dist");
+    const requestedExtPath = String(process.env.SOCA_EXT_PATH || "").trim();
+    const extPath = requestedExtPath
+      ? path.resolve(requestedExtPath)
+      : path.resolve(__dirname, "..", "dist");
     const manifestPath = path.join(extPath, "manifest.json");
     if (!fs.existsSync(manifestPath)) {
       throw new Error(
-        `Extension dist missing. Build first: pnpm -C core/tools/openbrowser/chromium-extension build (missing ${manifestPath})`
+        `Extension manifest missing. Build first or set SOCA_EXT_PATH (missing ${manifestPath})`
       );
     }
 
