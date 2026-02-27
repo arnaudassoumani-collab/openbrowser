@@ -29,11 +29,13 @@ import {
   ensureDnrGuardrailsInstalled,
   getBridgeAutoFallbackOllama,
   getBridgeConfig,
+  getBridgeConfigForProvider,
   getGoogleOAuthSession,
   getProviderPolicyMode,
   getProviderSecret,
   getProviderSecretsSession,
   getBridgeToken,
+  getVpsHoloConfig,
   loadSocaToolsConfig,
   normalizeLane,
   setGoogleOAuthSession,
@@ -42,6 +44,7 @@ import {
   setBridgeAutoFallbackOllama,
   setBridgeToken,
   setProviderPolicyMode,
+  setVpsHoloConfig,
   clearGoogleOAuthSession,
   type SocaProviderPolicyMode,
   type BridgeConfig,
@@ -548,13 +551,17 @@ async function loadLLMs(options?: {
           const currentBaseURL = String(raw?.options?.baseURL || "").trim();
 
           if (current.runtimeProvider === "soca-bridge") {
-            const cfg = await getBridgeConfig();
+            const cfg = await getBridgeConfigForProvider(current.rawProviderId);
+            if (!cfg.bridgeBaseURL) {
+              // VPS HOLO with no URL set yet — fall back to stored baseURL
+              if (currentBaseURL) return currentBaseURL;
+              throw new Error("vps_holo_baseURL_not_configured");
+            }
             return cfg.bridgeBaseURL.replace(/\/+$/, "") + "/v1";
           }
           if (current.runtimeProvider === "ollama") {
-            const baseURL = String(
-              currentBaseURL || OLLAMA_FALLBACK_BASE_URL
-            ).trim();
+            const storedURL = String(currentBaseURL || "").trim();
+            const baseURL = storedURL || OLLAMA_FALLBACK_BASE_URL;
             const u = new URL(baseURL);
             if (u.protocol !== "http:" && u.protocol !== "https:") {
               throw new Error("ollama_baseURL_bad_scheme");
@@ -1792,13 +1799,28 @@ async function runOllamaFallbackChat(params: {
   windowId: number;
   signal: AbortSignal;
 }): Promise<any> {
+  // Use the user's stored Ollama base URL if it's localhost; otherwise fall back.
+  let ollamaBaseURL = OLLAMA_FALLBACK_BASE_URL;
+  try {
+    const llmConfig = ((await chrome.storage.local.get(["llmConfig"]))
+      .llmConfig || {}) as any;
+    const storedURL = String(llmConfig?.options?.baseURL || "").trim();
+    if (storedURL) {
+      const u = new URL(storedURL);
+      if (["127.0.0.1", "localhost", "::1"].includes(u.hostname)) {
+        ollamaBaseURL = storedURL;
+      }
+    }
+  } catch {
+    // ignore, use default
+  }
   const fallbackLLMs = await loadLLMs({
     watchStorage: false,
     llmConfigOverride: {
       llm: "ollama",
       modelName: OLLAMA_FALLBACK_MODEL,
       npm: "@ai-sdk/openai-compatible",
-      options: { baseURL: OLLAMA_FALLBACK_BASE_URL }
+      options: { baseURL: ollamaBaseURL }
     }
   });
 
@@ -2232,6 +2254,17 @@ chrome.runtime.onMessage.addListener(function (request, _sender, sendResponse) {
           await setBridgeConfig(request.config as BridgeConfig);
           await ensureDnrGuardrailsInstalled();
           sendResponse({ ok: true });
+          return;
+        }
+        if (request.type === "SOCA_SET_VPS_HOLO_CONFIG") {
+          await setVpsHoloConfig(request.config as BridgeConfig);
+          await ensureDnrGuardrailsInstalled();
+          sendResponse({ ok: true });
+          return;
+        }
+        if (request.type === "SOCA_GET_VPS_HOLO_CONFIG") {
+          const vpsCfg = await getVpsHoloConfig();
+          sendResponse({ ok: true, config: vpsCfg });
           return;
         }
         if (request.type === "SOCA_REFRESH_DNR") {

@@ -37,6 +37,7 @@ export type SocaGoogleOAuthSession = {
 export const SOCA_LANE_STORAGE_KEY = "socaOpenBrowserLane";
 export const SOCA_TOOLS_CONFIG_STORAGE_KEY = "socaOpenBrowserToolsConfig";
 export const SOCA_BRIDGE_CONFIG_STORAGE_KEY = "socaBridgeConfig";
+export const SOCA_VPS_HOLO_CONFIG_STORAGE_KEY = "socaVpsHoloConfig";
 export const SOCA_BRIDGE_TOKEN_SESSION_KEY = "socaBridgeToken";
 export const SOCA_PROVIDER_SECRETS_SESSION_KEY = "socaProviderSecretsSession";
 export const SOCA_GOOGLE_OAUTH_SESSION_KEY = "socaGoogleOAuthSession";
@@ -112,6 +113,49 @@ export async function getBridgeConfig(): Promise<BridgeConfig> {
     .replace(/\/v1$/, "");
   assertAllowedBridgeUrl(bridgeBaseURL);
   return { ...cfg, bridgeBaseURL };
+}
+
+export const DEFAULT_VPS_HOLO_CONFIG: BridgeConfig = {
+  bridgeBaseURL: "",
+  dnrGuardrailsEnabled: true
+};
+
+export async function getVpsHoloConfig(): Promise<BridgeConfig> {
+  const stored = (
+    await chrome.storage.local.get([SOCA_VPS_HOLO_CONFIG_STORAGE_KEY])
+  )[SOCA_VPS_HOLO_CONFIG_STORAGE_KEY] as BridgeConfig | undefined;
+  if (!stored || (typeof stored === "object" && !stored.bridgeBaseURL)) {
+    return DEFAULT_VPS_HOLO_CONFIG;
+  }
+  const cfg =
+    stored && typeof stored === "object" ? stored : DEFAULT_VPS_HOLO_CONFIG;
+  const bridgeBaseURL = normalizeBaseURL(String(cfg.bridgeBaseURL || ""))
+    .replace(/\/+$/, "")
+    .replace(/\/v1$/, "");
+  if (!bridgeBaseURL) return { ...cfg, bridgeBaseURL: "" };
+  assertAllowedBridgeUrl(bridgeBaseURL);
+  return { ...cfg, bridgeBaseURL };
+}
+
+export async function setVpsHoloConfig(cfg: BridgeConfig): Promise<void> {
+  const bridgeBaseURL = normalizeBaseURL(String(cfg.bridgeBaseURL || ""))
+    .replace(/\/+$/, "")
+    .replace(/\/v1$/, "");
+  if (bridgeBaseURL) {
+    assertAllowedBridgeUrl(bridgeBaseURL);
+  }
+  await chrome.storage.local.set({
+    [SOCA_VPS_HOLO_CONFIG_STORAGE_KEY]: { ...cfg, bridgeBaseURL }
+  });
+}
+
+export async function getBridgeConfigForProvider(
+  providerId: string
+): Promise<BridgeConfig> {
+  if (providerId === "vps-holo") {
+    return getVpsHoloConfig();
+  }
+  return getBridgeConfig();
 }
 
 export async function getAllowDirectProviders(): Promise<boolean> {
@@ -368,7 +412,9 @@ export async function getEffectiveAllowlistDomains(): Promise<string[]> {
   ];
 }
 
-export async function resolveSocaBridgeConnection(): Promise<{
+export async function resolveSocaBridgeConnection(
+  providerId?: string
+): Promise<{
   lane: SocaOpenBrowserLane;
   token: string;
   bridgeBaseURL: string;
@@ -380,11 +426,14 @@ export async function resolveSocaBridgeConnection(): Promise<{
         SOCA_LANE_STORAGE_KEY
       ]
     ) || "OB_OFFLINE";
-  const cfg = await getBridgeConfig();
+  const cfg = await getBridgeConfigForProvider(providerId || "soca-bridge");
   const token = await getBridgeToken();
   const allowlistDomains = await getEffectiveAllowlistDomains();
+  const fallbackURL = cfg.bridgeBaseURL
+    ? `${cfg.bridgeBaseURL}/v1`
+    : `${DEFAULT_BRIDGE_CONFIG.bridgeBaseURL}/v1`;
   const candidate = buildBridgeCandidates({
-    savedBaseURL: `${cfg.bridgeBaseURL}/v1`,
+    savedBaseURL: fallbackURL,
     fallbackBaseURL: `${DEFAULT_BRIDGE_CONFIG.bridgeBaseURL}/v1`
   })[0];
   const bridgeBaseURL = candidate.replace(/\/+$/, "").replace(/\/v1$/, "");
@@ -456,8 +505,15 @@ export async function ensureDnrGuardrailsInstalled(): Promise<void> {
     .filter((id) => id >= 9000 && id < 9100);
 
   const bridgeHost = hostnameFromBaseURL(cfg.bridgeBaseURL) || "";
+  let vpsHoloHost = "";
+  try {
+    const vpsCfg = await getVpsHoloConfig();
+    vpsHoloHost = hostnameFromBaseURL(vpsCfg.bridgeBaseURL) || "";
+  } catch {
+    // VPS HOLO config may not be set yet
+  }
   const allowedRequestDomains = new Set(
-    ["127.0.0.1", "localhost", bridgeHost].filter(Boolean)
+    ["127.0.0.1", "localhost", bridgeHost, vpsHoloHost].filter(Boolean)
   );
 
   try {

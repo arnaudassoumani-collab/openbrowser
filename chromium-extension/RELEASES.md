@@ -1,5 +1,22 @@
 # OpenBrowser Chromium Extension Releases
 
+## [1.2.1] - 2026-02-28
+
+### Fixed
+
+- **Per-provider URL isolation**: SOCA Bridge and VPS HOLO now use separate storage keys (`socaBridgeConfig` / `socaVpsHoloConfig`) instead of sharing one. Switching between providers no longer bleeds Base URLs across configurations.
+- **VPS HOLO default URL**: Changed from hardcoded `http://127.0.0.1:9834/v1` to empty string, forcing users to explicitly set their Tailscale address instead of silently colliding with SOCA Bridge.
+- **Ollama fallback URL**: Runtime fallback now reads the user's stored Ollama base URL (if localhost) instead of always hardcoding `http://127.0.0.1:11434/v1`.
+- **Provider switching in Settings**: `handleLLMChange()` now loads provider-specific saved config from the correct storage key when switching between bridge-routed providers.
+- **Save dispatch**: `handleSave()` routes to `SOCA_SET_VPS_HOLO_CONFIG` for VPS HOLO and `SOCA_SET_BRIDGE_CONFIG` for SOCA Bridge.
+- **DNR guardrails**: `ensureDnrGuardrailsInstalled()` now includes both bridge and VPS HOLO hosts in allowed domains.
+
+### Added
+
+- **VPS HOLO model catalog**: Added Mistral Large (FR/GDPR reasoning), Mistral Embed (multilingual embeddings), Qwen 2.5 Coder 32B (local_warm), and Llama 3.3 70B (local_cold) from OpenClaw NB2 update.
+- **`SOCA_SET_VPS_HOLO_CONFIG` / `SOCA_GET_VPS_HOLO_CONFIG` message handlers**: Background script now supports reading and writing VPS HOLO bridge config independently.
+- **`getBridgeConfigForProvider()` dispatcher**: Single function that routes config reads to the correct storage key based on provider ID.
+
 ## [1.2.0] - 2026-02-27
 
 ### Added

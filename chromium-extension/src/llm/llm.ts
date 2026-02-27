@@ -499,7 +499,7 @@ const VPS_HOLO_PROVIDER: ModelsData = {
     id: "vps-holo",
     name: "VPS HOLO (Tailscale Bridge)",
     npm: "@ai-sdk/openai-compatible",
-    api: "http://127.0.0.1:9834/v1",
+    api: "",
     authModes: ["api_key"],
     modelSource: "bridge",
     catalogMode: "local_only",
@@ -524,6 +524,30 @@ const VPS_HOLO_PROVIDER: ModelsData = {
       "qwen3-vl:8b": {
         id: "qwen3-vl:8b",
         name: "Qwen3-VL 8B (VPS HOLO)",
+        modalities: { input: ["text", "image"], output: ["text"] }
+      },
+      "mistral-large-latest": {
+        id: "mistral-large-latest",
+        name: "Mistral Large (FR/GDPR reasoning)",
+        modelOrigin: "vps_holo",
+        modalities: { input: ["text", "image"], output: ["text"] }
+      },
+      "mistral-embed": {
+        id: "mistral-embed",
+        name: "Mistral Embed (multilingual embeddings)",
+        modelOrigin: "vps_holo",
+        modalities: { input: ["text"], output: ["text"] }
+      },
+      "qwen-2.5-coder-32b": {
+        id: "qwen-2.5-coder-32b",
+        name: "Qwen 2.5 Coder 32B (local_warm)",
+        modelOrigin: "local",
+        modalities: { input: ["text"], output: ["text"] }
+      },
+      "llama-3.3-70b": {
+        id: "llama-3.3-70b",
+        name: "Llama 3.3 70B (local_cold)",
+        modelOrigin: "local",
         modalities: { input: ["text", "image"], output: ["text"] }
       },
       custom: GENERIC_CUSTOM_MODEL

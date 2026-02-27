@@ -380,7 +380,8 @@ const OptionsPage = () => {
         const result = await chrome.storage.local.get([
           "llmConfig",
           "historyLLMConfig",
-          "socaBridgeConfig"
+          "socaBridgeConfig",
+          "socaVpsHoloConfig"
         ]);
 
         const migratedLlmConfig = migrateLLMConfig(result.llmConfig);
@@ -449,23 +450,37 @@ const OptionsPage = () => {
           const isBridgeRoutedProvider = BRIDGE_ROUTED_PROVIDER_IDS.has(
             String(nextConfig.llm || "")
           );
-          if (
-            isBridgeRoutedProvider &&
-            typeof result.socaBridgeConfig?.bridgeBaseURL === "string" &&
-            result.socaBridgeConfig.bridgeBaseURL.trim()
-          ) {
-            nextConfig.options = {
-              ...nextConfig.options,
-              baseURL: `${result.socaBridgeConfig.bridgeBaseURL.replace(/\/+$/, "")}/v1`
-            };
-          } else if (
-            isBridgeRoutedProvider &&
-            !isLocalBaseURL(String(nextConfig.options?.baseURL || ""))
-          ) {
-            nextConfig.options = {
-              ...nextConfig.options,
-              baseURL: "http://127.0.0.1:9834/v1"
-            };
+          if (isBridgeRoutedProvider) {
+            // Load provider-specific bridge config
+            const providerConfigKey =
+              nextConfig.llm === "vps-holo"
+                ? "socaVpsHoloConfig"
+                : "socaBridgeConfig";
+            const providerCfg = result[providerConfigKey];
+            if (
+              providerCfg &&
+              typeof providerCfg === "object" &&
+              typeof providerCfg.bridgeBaseURL === "string" &&
+              providerCfg.bridgeBaseURL.trim()
+            ) {
+              nextConfig.options = {
+                ...nextConfig.options,
+                baseURL: `${providerCfg.bridgeBaseURL.replace(/\/+$/, "")}/v1`
+              };
+            } else if (nextConfig.llm === "vps-holo") {
+              // VPS HOLO with no stored config — leave empty so user must set it
+              nextConfig.options = {
+                ...nextConfig.options,
+                baseURL: ""
+              };
+            } else if (
+              !isLocalBaseURL(String(nextConfig.options?.baseURL || ""))
+            ) {
+              nextConfig.options = {
+                ...nextConfig.options,
+                baseURL: "http://127.0.0.1:9834/v1"
+              };
+            }
           }
 
           // Never persist provider secrets in local state.
@@ -918,17 +933,33 @@ const OptionsPage = () => {
           const currentBaseURL = String(
             llmConfigValue?.options?.baseURL || ""
           ).trim();
+
+          // Dispatch to provider-specific storage key
+          const configStorageKey =
+            providerId === "vps-holo"
+              ? "socaVpsHoloConfig"
+              : "socaBridgeConfig";
+          const configMessageType =
+            providerId === "vps-holo"
+              ? "SOCA_SET_VPS_HOLO_CONFIG"
+              : "SOCA_SET_BRIDGE_CONFIG";
+
           const loadedBridgeCfg = await chrome.storage.local.get([
-            "socaBridgeConfig"
+            configStorageKey
           ]);
+          const defaultFallbackURL =
+            providerId === "vps-holo" ? "" : "http://127.0.0.1:9834";
           const previousBridgeBaseURL = String(
-            loadedBridgeCfg?.socaBridgeConfig?.bridgeBaseURL ||
-              "http://127.0.0.1:9834"
+            loadedBridgeCfg?.[configStorageKey]?.bridgeBaseURL ||
+              defaultFallbackURL
           ).trim();
 
+          const fallbackBaseURL = previousBridgeBaseURL
+            ? `${previousBridgeBaseURL}/v1`
+            : "http://127.0.0.1:9834/v1";
           const bridgeCandidates = buildBridgeCandidates({
             savedBaseURL: currentBaseURL,
-            fallbackBaseURL: `${previousBridgeBaseURL}/v1`
+            fallbackBaseURL
           });
           const bridgeV1BaseURL = bridgeCandidates[0];
           const bridgeBaseURL = bridgeV1BaseURL
@@ -936,7 +967,7 @@ const OptionsPage = () => {
             .replace(/\/v1$/, "");
 
           const r2 = await runtimeSendMessage<any>({
-            type: "SOCA_SET_BRIDGE_CONFIG",
+            type: configMessageType,
             config: { bridgeBaseURL, dnrGuardrailsEnabled: true }
           });
           if (!r2?.ok)
@@ -1030,10 +1061,34 @@ const OptionsPage = () => {
       ? savedAuthMode
       : (providerAuthModes[0] as ProviderAuthMode);
     const savedBaseURL = String(savedConfig?.options?.baseURL || "").trim();
-    const baseURLToUse =
-      bridgeRouted && savedBaseURL && !isLocalBaseURL(savedBaseURL)
-        ? defaultBaseURL
-        : savedBaseURL || defaultBaseURL;
+
+    // For bridge-routed providers, load provider-specific config from storage
+    // instead of reusing a shared base URL that could bleed across providers.
+    let baseURLToUse = savedBaseURL || defaultBaseURL;
+    if (bridgeRouted) {
+      // Start with the provider's default (empty for vps-holo, localhost for soca-bridge)
+      baseURLToUse = defaultBaseURL;
+      // Load the provider-specific stored config asynchronously and update form
+      const storageKey =
+        value === "vps-holo" ? "socaVpsHoloConfig" : "socaBridgeConfig";
+      chrome.storage.local
+        .get([storageKey])
+        .then((result) => {
+          const storedCfg = result[storageKey];
+          if (
+            storedCfg &&
+            typeof storedCfg === "object" &&
+            storedCfg.bridgeBaseURL
+          ) {
+            const storedURL = String(storedCfg.bridgeBaseURL || "").trim();
+            if (storedURL && isLocalBaseURL(storedURL)) {
+              const providerBaseURL = `${storedURL.replace(/\/+$/, "")}/v1`;
+              form.setFieldValue(["options", "baseURL"], providerBaseURL);
+            }
+          }
+        })
+        .catch(() => {});
+    }
 
     const newConfig = {
       llm: value,
@@ -1049,7 +1104,6 @@ const OptionsPage = () => {
         savedConfig?.modelName || modelOptions[value]?.[0]?.value || "",
       npm: provider?.npm,
       options: {
-        // Use saved base URL if it exists and is different from default, otherwise use default
         baseURL: baseURLToUse
       }
     };
