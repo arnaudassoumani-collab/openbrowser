@@ -483,7 +483,13 @@ async function loadLLMs(options?: {
       `Direct provider '${selection.rawProviderId}' is disabled by policy mode '${policyMode}'.`,
       "error"
     );
-    setTimeout(() => chrome.runtime.openOptionsPage(), 800);
+    setTimeout(() => {
+      try {
+        chrome.runtime.sendMessage({ type: "SOCA_OPEN_SETTINGS" });
+      } catch {
+        chrome.runtime.openOptionsPage();
+      }
+    }, 800);
     throw new Error("provider_not_allowed");
   }
 

@@ -332,6 +332,7 @@ interface ChatInputProps {
   currentMessageId: string | null;
   onNewSession: () => void;
   onShowSessionHistory: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -345,7 +346,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   sending,
   currentMessageId,
   onNewSession,
-  onShowSessionHistory
+  onShowSessionHistory,
+  onOpenSettings
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isEmpty = !inputValue.trim() && uploadedFiles.length === 0;
@@ -968,7 +970,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         onStop={onStop}
         onOpenFilePicker={() => fileInputRef.current?.click()}
         onShowSessionHistory={onShowSessionHistory}
-        onOpenSettings={() => chrome.runtime.openOptionsPage()}
+        onOpenSettings={
+          onOpenSettings ?? (() => chrome.runtime.openOptionsPage())
+        }
         onNewSession={onNewSession}
         onToggleAdvanced={() => setAdvancedOpen((current) => !current)}
         advancedOpen={advancedOpen}

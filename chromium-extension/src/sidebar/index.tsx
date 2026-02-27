@@ -10,7 +10,8 @@ import type { ChatMessage, UploadedFile } from "./types";
 import { useChatCallbacks } from "./hooks/useChatCallbacks";
 import { useSessionManagement } from "./hooks/useSessionManagement";
 import { ThemeProvider } from "./providers/ThemeProvider";
-import { message as AntdMessage } from "antd";
+import { Button, message as AntdMessage } from "antd";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { clampText } from "./utils/sanitize";
 
@@ -24,6 +25,7 @@ const AppRun = () => {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [updateTrigger, setUpdateTrigger] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Keep MV3 service worker alive while the sidebar is open (active automation).
   useEffect(() => {
@@ -123,6 +125,8 @@ const AppRun = () => {
             userMessage.status = "error";
           }
         }
+      } else if (message.type === "SOCA_OPEN_SETTINGS") {
+        setShowSettings(true);
       } else if (message.type === "log") {
         const level = message.data.level;
         const msg = clampText(String(message.data.message || ""), 800);
@@ -318,55 +322,79 @@ const AppRun = () => {
 
   return (
     <div className="flex flex-col h-screen bg-theme-primary text-theme-primary">
-      {/* Message area */}
-      <div
-        ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden p-4 bg-theme-secondary relative"
-      >
-        {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div
-              className="w-48 h-48"
-              style={{
-                maskImage: "url(/icon_light.png)",
-                WebkitMaskImage: "url(/icon_light.png)",
-                maskSize: "contain",
-                WebkitMaskSize: "contain",
-                maskRepeat: "no-repeat",
-                WebkitMaskRepeat: "no-repeat",
-                maskPosition: "center",
-                WebkitMaskPosition: "center",
-                backgroundColor: "var(--chrome-icon-color)",
-                opacity: 0.15
-              }}
-            />
+      {showSettings ? (
+        <>
+          <div className="soca-settings-bar">
+            <Button
+              type="text"
+              icon={<ArrowLeftOutlined />}
+              onClick={() => setShowSettings(false)}
+              data-testid="soca-btn-settings-back"
+              className="text-theme-icon"
+            >
+              Back to chat
+            </Button>
           </div>
-        ) : (
-          messages.map((message) => (
-            <MessageItem
-              key={message.id}
-              message={message}
-              onUpdateMessage={forceUpdate}
-            />
-          ))
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+          <iframe
+            src="options.html"
+            className="soca-settings-iframe"
+            data-testid="soca-settings-iframe"
+          />
+        </>
+      ) : (
+        <>
+          {/* Message area */}
+          <div
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden p-4 bg-theme-secondary relative"
+          >
+            {messages.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <div
+                  className="w-48 h-48"
+                  style={{
+                    maskImage: "url(/icon_light.png)",
+                    WebkitMaskImage: "url(/icon_light.png)",
+                    maskSize: "contain",
+                    WebkitMaskSize: "contain",
+                    maskRepeat: "no-repeat",
+                    WebkitMaskRepeat: "no-repeat",
+                    maskPosition: "center",
+                    WebkitMaskPosition: "center",
+                    backgroundColor: "var(--chrome-icon-color)",
+                    opacity: 0.15
+                  }}
+                />
+              </div>
+            ) : (
+              messages.map((message) => (
+                <MessageItem
+                  key={message.id}
+                  message={message}
+                  onUpdateMessage={forceUpdate}
+                />
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
 
-      {/* Input area */}
-      <ChatInput
-        inputValue={inputValue}
-        onInputChange={setInputValue}
-        onSend={sendMessage}
-        onStop={handleStop}
-        onFileSelect={handleFileSelect}
-        onRemoveFile={removeFile}
-        uploadedFiles={uploadedFiles}
-        sending={sending}
-        currentMessageId={currentMessageId}
-        onNewSession={handleNewSession}
-        onShowSessionHistory={handleShowSessionHistory}
-      />
+          {/* Input area */}
+          <ChatInput
+            inputValue={inputValue}
+            onInputChange={setInputValue}
+            onSend={sendMessage}
+            onStop={handleStop}
+            onFileSelect={handleFileSelect}
+            onRemoveFile={removeFile}
+            uploadedFiles={uploadedFiles}
+            sending={sending}
+            currentMessageId={currentMessageId}
+            onNewSession={handleNewSession}
+            onShowSessionHistory={handleShowSessionHistory}
+            onOpenSettings={() => setShowSettings(true)}
+          />
+        </>
+      )}
 
       {/* Session History Modal */}
       <SessionHistory

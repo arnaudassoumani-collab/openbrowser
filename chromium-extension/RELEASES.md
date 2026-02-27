@@ -1,5 +1,22 @@
 # OpenBrowser Chromium Extension Releases
 
+## [1.2.0] - 2026-02-27
+
+### Added
+
+- **Inline settings in sidebar**: Clicking the Settings gear icon now embeds `options.html` as an iframe inside the sidebar instead of opening a new browser tab. A "Back to chat" button returns to the chat view.
+- **`SOCA_OPEN_SETTINGS` message**: Background script sends this message to the sidebar to trigger inline settings display; falls back to `chrome.runtime.openOptionsPage()` if the sidebar is not open.
+- **E2E test for inline settings**: New `settings-inline.spec.ts` verifies both the gear button and the "More > Settings" dropdown open settings inline without spawning a new tab.
+
+### Changed
+
+- **ChatInput prop wiring**: `onOpenSettings` is now an optional prop passed from the sidebar parent, replacing the hardcoded `chrome.runtime.openOptionsPage()` call.
+- **`open_in_tab: true` retained**: The manifest still opens options in a full tab as a fallback when the sidebar is closed.
+
+### Archive
+
+- Added immutable version pack: `chromium-extension-versions/v1.2.0`.
+
 ## [1.1.1] - 2026-02-26
 
 ### Added
