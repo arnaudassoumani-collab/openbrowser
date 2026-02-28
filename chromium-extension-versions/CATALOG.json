@@ -41,6 +41,16 @@
       "version": "1.1.1",
       "folder": "core/tools/openbrowser/chromium-extension-versions/v1.1.1",
       "load_unpacked": true
+    },
+    {
+      "version": "1.2.0",
+      "folder": "core/tools/openbrowser/chromium-extension-versions/v1.2.0",
+      "load_unpacked": true
+    },
+    {
+      "version": "1.2.1",
+      "folder": "core/tools/openbrowser/chromium-extension-versions/v1.2.1",
+      "load_unpacked": true
     }
   ]
 }
