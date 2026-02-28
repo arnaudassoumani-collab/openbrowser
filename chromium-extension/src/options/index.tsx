@@ -329,7 +329,13 @@ const OptionsPage = () => {
       try {
         setLoading(true);
 
-        const data = await fetchModelsData({ lane: socaOpenBrowserLane });
+        const selectedProviderId = String(
+          form.getFieldValue("llm") || config.llm || ""
+        ).trim();
+        const data = await fetchModelsData({
+          lane: socaOpenBrowserLane,
+          providerId: selectedProviderId
+        });
         const imageProviders = getProvidersWithImageSupport(data);
         const filteredProviders = Object.fromEntries(
           Object.entries(imageProviders).filter(([, provider]) => {

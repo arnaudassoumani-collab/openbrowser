@@ -1003,10 +1003,14 @@ async function refreshProviderModelsCatalog(input: {
 
   let models: ProviderModelDescriptor[] = [];
   if (providerId === "soca-bridge" || providerId === "vps-holo") {
-    const bridgeModels = await bridgeFetchJson<{ data?: any[] }>("/v1/models", {
-      method: "GET",
-      timeoutMs: 12_000
-    });
+    const bridgeModels = await bridgeFetchJson<{ data?: any[] }>(
+      "/v1/models",
+      {
+        method: "GET",
+        timeoutMs: 12_000
+      },
+      { providerId }
+    );
     models = normalizeOpenAIStyleModels(bridgeModels, providerId);
   } else if (providerId === "openrouter") {
     const token = await getProviderCredential(providerId);
@@ -2273,10 +2277,14 @@ chrome.runtime.onMessage.addListener(function (request, _sender, sendResponse) {
           return;
         }
         if (request.type === "SOCA_BRIDGE_GET_MODELS") {
-          const data = await bridgeFetchJson("/v1/models", {
-            method: "GET",
-            timeoutMs: 10_000
-          });
+          const data = await bridgeFetchJson(
+            "/v1/models",
+            {
+              method: "GET",
+              timeoutMs: 10_000
+            },
+            { providerId: request.providerId }
+          );
           sendResponse({ ok: true, data });
           return;
         }

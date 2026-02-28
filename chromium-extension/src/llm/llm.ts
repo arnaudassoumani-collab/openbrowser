@@ -14,6 +14,7 @@ import { isTrustedBridgeURL } from "./endpointPolicy";
 
 export type SocaOpenBrowserLane = "OB_OFFLINE" | "OB_ONLINE_PULSE";
 export { isTrustedBridgeURL };
+type BridgeProviderId = "soca-bridge" | "vps-holo";
 
 const MODELS_CACHE_STORAGE_KEY = "socaBridgeModelsCache";
 const PROVIDER_MODELS_CACHE_STORAGE_KEY = "socaProviderModelsCatalogCache";
@@ -664,12 +665,42 @@ function cloneModelsData(data: ModelsData): ModelsData {
   return cloned;
 }
 
+function normalizeBridgeProviderId(value: unknown): BridgeProviderId | null {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "vps-holo" || normalized === "vps_holo") {
+    return "vps-holo";
+  }
+  if (normalized === "soca-bridge" || normalized === "soca_bridge") {
+    return "soca-bridge";
+  }
+  return null;
+}
+
+async function inferSelectedBridgeProviderId(): Promise<BridgeProviderId> {
+  if (typeof chrome === "undefined" || !chrome?.storage?.local) {
+    return "soca-bridge";
+  }
+  try {
+    const llmConfig = ((await chrome.storage.local.get(["llmConfig"]))
+      .llmConfig || {}) as Record<string, unknown>;
+    return normalizeBridgeProviderId(llmConfig.llm) || "soca-bridge";
+  } catch {
+    return "soca-bridge";
+  }
+}
+
 async function fetchBridgeModels(
-  timeoutMs: number
+  timeoutMs: number,
+  providerId?: BridgeProviderId
 ): Promise<BridgeModelDescriptor[]> {
   if (typeof chrome === "undefined" || !chrome?.runtime?.sendMessage) return [];
   const resp = (await Promise.race([
-    chrome.runtime.sendMessage({ type: BRIDGE_MODELS_MESSAGE_TYPE }),
+    chrome.runtime.sendMessage({
+      type: BRIDGE_MODELS_MESSAGE_TYPE,
+      ...(providerId ? { providerId } : {})
+    }),
     new Promise((_, reject) =>
       setTimeout(() => reject(new Error("bridge_models_timeout")), timeoutMs)
     )
@@ -775,6 +806,7 @@ async function mergeProviderCatalogCache(
 
 export async function fetchModelsData(options?: {
   lane?: SocaOpenBrowserLane;
+  providerId?: string;
 }): Promise<ModelsData> {
   const fallbackModels = await mergeProviderCatalogCache(
     cloneModelsData(DEFAULT_FALLBACK_MODELS)
@@ -783,7 +815,10 @@ export async function fetchModelsData(options?: {
     return fallbackModels;
   }
   try {
-    const descriptors = await fetchBridgeModels(8000);
+    const selectedProviderId =
+      normalizeBridgeProviderId(options?.providerId) ||
+      (await inferSelectedBridgeProviderId());
+    const descriptors = await fetchBridgeModels(8000, selectedProviderId);
     if (!descriptors.length) {
       return fallbackModels;
     }

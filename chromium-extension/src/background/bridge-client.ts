@@ -8,6 +8,7 @@ export type SocaOpenBrowserLane = "OB_OFFLINE" | "OB_ONLINE_PULSE";
 export type SocaProviderPolicyMode =
   | "local_only"
   | "all_providers_bridge_governed";
+export type SocaBridgeProviderId = "soca-bridge" | "vps-holo";
 
 export type SocaToolsConfig = {
   mcp?: {
@@ -71,6 +72,50 @@ export const DEFAULT_ALLOWLIST_DOMAINS = [
   "api.github.com",
   "context7.com"
 ];
+
+function normalizeBridgeProviderId(
+  value: unknown
+): SocaBridgeProviderId | null {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "vps-holo" || normalized === "vps_holo") {
+    return "vps-holo";
+  }
+  if (normalized === "soca-bridge" || normalized === "soca_bridge") {
+    return "soca-bridge";
+  }
+  return null;
+}
+
+/**
+ * Deterministic bridge-provider resolver.
+ *
+ * Resolution order:
+ * 1) explicit providerId (if valid),
+ * 2) active llmConfig.llm (if bridge-routed),
+ * 3) fallback to local bridge.
+ */
+export function resolveBridgeProvider(
+  explicitProviderId?: unknown,
+  llmConfig?: { llm?: unknown } | null
+): SocaBridgeProviderId {
+  const explicit = normalizeBridgeProviderId(explicitProviderId);
+  if (explicit) return explicit;
+  const inferred = normalizeBridgeProviderId(llmConfig?.llm);
+  if (inferred) return inferred;
+  return "soca-bridge";
+}
+
+async function resolveBridgeProviderFromStorage(
+  explicitProviderId?: unknown
+): Promise<SocaBridgeProviderId> {
+  const explicit = normalizeBridgeProviderId(explicitProviderId);
+  if (explicit) return explicit;
+  const llmConfig = ((await chrome.storage.local.get(["llmConfig"]))
+    .llmConfig || {}) as { llm?: unknown };
+  return resolveBridgeProvider(undefined, llmConfig);
+}
 
 function hostnameFromBaseURL(baseURL?: string): string | null {
   if (!baseURL) return null;
@@ -413,7 +458,7 @@ export async function getEffectiveAllowlistDomains(): Promise<string[]> {
 }
 
 export async function resolveSocaBridgeConnection(
-  providerId?: string
+  providerId?: SocaBridgeProviderId
 ): Promise<{
   lane: SocaOpenBrowserLane;
   token: string;
@@ -442,10 +487,14 @@ export async function resolveSocaBridgeConnection(
 
 export async function bridgeFetchJson<T>(
   path: string,
-  init: RequestInit & { timeoutMs?: number; withLane?: boolean } = {}
+  init: RequestInit & { timeoutMs?: number; withLane?: boolean } = {},
+  options: { providerId?: unknown; llmConfig?: { llm?: unknown } | null } = {}
 ): Promise<T> {
+  const providerId = options.llmConfig
+    ? resolveBridgeProvider(options.providerId, options.llmConfig)
+    : await resolveBridgeProviderFromStorage(options.providerId);
   const { lane, token, bridgeBaseURL, allowlistDomains } =
-    await resolveSocaBridgeConnection();
+    await resolveSocaBridgeConnection(providerId);
 
   const base = new URL(bridgeBaseURL.replace(/\/+$/, "") + "/");
   const url = new URL(path.replace(/^\//, ""), base);

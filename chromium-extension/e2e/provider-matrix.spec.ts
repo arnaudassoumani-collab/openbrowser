@@ -231,6 +231,12 @@ test("Provider model refresh matrix covers bridge/api-key/oauth modes", async ({
     });
     expect(setBridgeConfig?.ok).toBe(true);
 
+    const setVpsConfig = await extSendMessage(extPage, {
+      type: "SOCA_SET_VPS_HOLO_CONFIG",
+      config: { bridgeBaseURL, dnrGuardrailsEnabled: true }
+    });
+    expect(setVpsConfig?.ok).toBe(true);
+
     const missingOpenrouterKey = await extSendMessage(extPage, {
       type: "SOCA_PROVIDER_MODELS_REFRESH",
       providerId: "openrouter",
@@ -461,5 +467,177 @@ test("Provider model refresh matrix covers bridge/api-key/oauth modes", async ({
   } finally {
     bridgeServer.close();
     directServer.close();
+  }
+});
+
+test("Bridge routing isolates soca-bridge and vps-holo endpoints", async ({
+  extPage
+}) => {
+  const localBridgeServer = http.createServer((req, res) => {
+    if (req.url === "/v1/models") {
+      const auth = String(req.headers["authorization"] || "");
+      if (auth !== "Bearer bridge-good-token") {
+        res.writeHead(403, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "invalid_token" }));
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          object: "list",
+          data: [
+            {
+              id: "soca/local-only",
+              name: "SOCA Local Only",
+              provider: "soca-bridge",
+              model_origin: "local"
+            }
+          ]
+        })
+      );
+      return;
+    }
+    if (req.url === "/health") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+    res.writeHead(404, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "not_found" }));
+  });
+
+  const vpsBridgeServer = http.createServer((req, res) => {
+    if (req.url === "/v1/models") {
+      const auth = String(req.headers["authorization"] || "");
+      if (auth !== "Bearer bridge-good-token") {
+        res.writeHead(403, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "invalid_token" }));
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          object: "list",
+          data: [
+            {
+              id: "soca/vps-only",
+              name: "SOCA VPS Only",
+              provider: "vps-holo",
+              model_origin: "vps_holo"
+            }
+          ]
+        })
+      );
+      return;
+    }
+    if (req.url === "/health") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+    res.writeHead(404, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "not_found" }));
+  });
+
+  await Promise.all([
+    new Promise<void>((resolve) =>
+      localBridgeServer.listen(0, "127.0.0.1", resolve)
+    ),
+    new Promise<void>((resolve) =>
+      vpsBridgeServer.listen(0, "127.0.0.1", resolve)
+    )
+  ]);
+
+  const localAddress = localBridgeServer.address();
+  const vpsAddress = vpsBridgeServer.address();
+  const localPort =
+    typeof localAddress === "object" && localAddress ? localAddress.port : null;
+  const vpsPort =
+    typeof vpsAddress === "object" && vpsAddress ? vpsAddress.port : null;
+  if (!localPort || !vpsPort) {
+    throw new Error("failed_to_bind_bridge_servers");
+  }
+  const localBaseURL = `http://127.0.0.1:${localPort}`;
+  const vpsBaseURL = `http://127.0.0.1:${vpsPort}`;
+
+  try {
+    const setBridgeConfig = await extSendMessage(extPage, {
+      type: "SOCA_SET_BRIDGE_CONFIG",
+      config: { bridgeBaseURL: localBaseURL, dnrGuardrailsEnabled: true }
+    });
+    expect(setBridgeConfig?.ok).toBe(true);
+
+    const setVpsConfig = await extSendMessage(extPage, {
+      type: "SOCA_SET_VPS_HOLO_CONFIG",
+      config: { bridgeBaseURL: vpsBaseURL, dnrGuardrailsEnabled: true }
+    });
+    expect(setVpsConfig?.ok).toBe(true);
+
+    const setBridgeToken = await extSendMessage(extPage, {
+      type: "SOCA_SET_BRIDGE_TOKEN",
+      token: "bridge-good-token"
+    });
+    expect(setBridgeToken?.ok).toBe(true);
+
+    const localModels = await extSendMessage(extPage, {
+      type: "SOCA_PROVIDER_MODELS_REFRESH",
+      providerId: "soca-bridge",
+      authMode: "api_key",
+      force: true
+    });
+    expect(localModels?.ok).toBe(true);
+    expect(
+      localModels?.data?.models?.some(
+        (m: any) => String(m?.id || "") === "soca/local-only"
+      )
+    ).toBe(true);
+    expect(
+      localModels?.data?.models?.some(
+        (m: any) => String(m?.id || "") === "soca/vps-only"
+      )
+    ).toBe(false);
+
+    const vpsModels = await extSendMessage(extPage, {
+      type: "SOCA_PROVIDER_MODELS_REFRESH",
+      providerId: "vps-holo",
+      authMode: "api_key",
+      force: true
+    });
+    expect(vpsModels?.ok).toBe(true);
+    expect(
+      vpsModels?.data?.models?.some(
+        (m: any) => String(m?.id || "") === "soca/vps-only"
+      )
+    ).toBe(true);
+    expect(
+      vpsModels?.data?.models?.some(
+        (m: any) => String(m?.id || "") === "soca/local-only"
+      )
+    ).toBe(false);
+
+    const localBridgeCatalog = await extSendMessage(extPage, {
+      type: "SOCA_BRIDGE_GET_MODELS",
+      providerId: "soca-bridge"
+    });
+    expect(localBridgeCatalog?.ok).toBe(true);
+    expect(
+      localBridgeCatalog?.data?.data?.some(
+        (m: any) => String(m?.id || "") === "soca/local-only"
+      )
+    ).toBe(true);
+
+    const vpsBridgeCatalog = await extSendMessage(extPage, {
+      type: "SOCA_BRIDGE_GET_MODELS",
+      providerId: "vps-holo"
+    });
+    expect(vpsBridgeCatalog?.ok).toBe(true);
+    expect(
+      vpsBridgeCatalog?.data?.data?.some(
+        (m: any) => String(m?.id || "") === "soca/vps-only"
+      )
+    ).toBe(true);
+  } finally {
+    localBridgeServer.close();
+    vpsBridgeServer.close();
   }
 });

@@ -1,7 +1,7 @@
 {
   "name": "OpenBrowser",
   "description": "OpenBrowser Extension",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "manifest_version": 3,
   "background": {
     "type": "module",
@@ -36,18 +36,11 @@
   ],
   "host_permissions": [
     "http://127.0.0.1/*",
-    "https://127.0.0.1/*",
     "http://localhost/*",
-    "https://localhost/*",
-    "*://*.ts.net/*",
-    "https://aistudio.google.com/*",
-    "https://accounts.google.com/*",
-    "https://oauth2.googleapis.com/*",
-    "https://lovable.dev/*",
-    "https://antigravity.google/*",
-    "https://github.com/*"
+    "https://soca-vps.tailf1b21d.ts.net/*"
   ],
   "optional_host_permissions": [
+    "*://*.ts.net/*",
     "https://api.openai.com/*",
     "https://api.anthropic.com/*",
     "https://generativelanguage.googleapis.com/*",

@@ -1,5 +1,18 @@
 # OpenBrowser Chromium Extension Releases
 
+## [1.2.2] - 2026-02-28
+
+### Fixed
+
+- **Provider-aware bridge routing**: `bridgeFetchJson()` now resolves the bridge target deterministically with explicit `providerId` first, then active `llmConfig`, then local fallback (`soca-bridge`). This prevents VPS HOLO/local config bleed.
+- **Bridge models payload scoping**: `SOCA_BRIDGE_GET_MODELS` now accepts `providerId`, and background handlers pass provider context for bridge-routed model refresh calls.
+- **Serve-first host permissions**: Manifest now defaults to minimal install-time origins (`127.0.0.1`, `localhost`, and `https://soca-vps.tailf1b21d.ts.net/*`) with dynamic tailnet wildcard support moved to `optional_host_permissions` (`*://*.ts.net/*`).
+
+### Security
+
+- Removed broad default tailnet wildcard host permission from install-time scope while preserving explicit opt-in support for dynamic `*.ts.net` hosts.
+- Explicitly rejects invalid partial-IP wildcard patterns (for example `100.*.*.*`) by policy and release guidance.
+
 ## [1.2.1] - 2026-02-28
 
 ### Fixed
